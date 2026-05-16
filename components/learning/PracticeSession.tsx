@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2, ChevronRight, RotateCcw, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronRight, RotateCcw, XCircle } from "lucide-react";
 import { FormEvent, useMemo, useState, useTransition } from "react";
 import { submitAnswerAction, type SubmitAnswerResult } from "@/lib/actions/practice";
 import { Badge } from "@/components/ui/Badge";
@@ -8,6 +8,7 @@ import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { Input, Textarea } from "@/components/ui/Field";
 import { ProgressBar } from "@/components/ui/ProgressBar";
+import { QuestionCard } from "@/components/learning/QuestionCard";
 import type { QuestionType } from "@/types/database";
 import { cn } from "@/lib/utils/cn";
 
@@ -21,6 +22,9 @@ export type PracticeQuestion = {
 type PracticeSessionProps = {
   questions: PracticeQuestion[];
   backHref: string;
+  lessonTitle?: string;
+  topicTitle?: string;
+  levelTitle?: string;
 };
 
 function questionTypeLabel(type: QuestionType) {
@@ -30,7 +34,7 @@ function questionTypeLabel(type: QuestionType) {
     .join(" ");
 }
 
-export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
+export function PracticeSession({ questions, backHref, lessonTitle, topicTitle, levelTitle }: PracticeSessionProps) {
   const [index, setIndex] = useState(0);
   const [answer, setAnswer] = useState("");
   const [result, setResult] = useState<SubmitAnswerResult | null>(null);
@@ -38,30 +42,58 @@ export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
   const [isPending, startTransition] = useTransition();
 
   const current = questions[index];
+  const sessionLabel = [levelTitle, topicTitle, lessonTitle].filter(Boolean).join(" / ");
   const progressLabel = useMemo(() => `${index + 1} of ${questions.length}`, [index, questions.length]);
   const progressValue = ((index + 1) / questions.length) * 100;
+  const answerMatches = (left: string, right: string) => left.trim().toLowerCase() === right.trim().toLowerCase();
+
+  function resetSession() {
+    setIndex(0);
+    setAnswer("");
+    setResult(null);
+    setSavedResults({});
+  }
 
   if (!current) {
     const correctCount = Object.values(savedResults).filter(Boolean).length;
     const score = questions.length ? Math.round((correctCount / questions.length) * 100) : 0;
+    const mistakesCount = Math.max(0, questions.length - correctCount);
 
     return (
       <Card className="mx-auto max-w-2xl">
         <CardContent className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-green-50 text-success">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-lg bg-successSoft text-success">
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <h2 className="text-2xl font-semibold text-ink">Practice complete</h2>
-          <p className="mt-2 text-base leading-7 text-muted">
+          <p className="mt-2 text-base leading-7 text-body">
             You answered {correctCount} of {questions.length} correctly. Score: {score}%.
           </p>
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-line bg-secondary p-4">
+              <p className="text-2xl font-semibold text-ink">{score}%</p>
+              <p className="mt-1 text-sm text-muted">Score</p>
+            </div>
+            <div className="rounded-lg border border-green-100 bg-successSoft p-4">
+              <p className="text-2xl font-semibold text-ink">{correctCount}</p>
+              <p className="mt-1 text-sm text-success">Correct</p>
+            </div>
+            <div className="rounded-lg border border-red-100 bg-errorSoft p-4">
+              <p className="text-2xl font-semibold text-ink">{mistakesCount}</p>
+              <p className="mt-1 text-sm text-error">Mistakes</p>
+            </div>
+          </div>
           <ProgressBar className="mx-auto mt-5 max-w-sm" label="Session score" value={score} />
-          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <ButtonLink href="/dashboard" variant="primary">
-              Dashboard
-            </ButtonLink>
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
             <ButtonLink href="/mistakes" variant="secondary">
               Review mistakes
+            </ButtonLink>
+            <Button onClick={resetSession} variant="secondary">
+              <RotateCcw className="h-4 w-4" />
+              Practice again
+            </Button>
+            <ButtonLink href="/learn" variant="primary">
+              Back to Learn
             </ButtonLink>
           </div>
         </CardContent>
@@ -104,7 +136,8 @@ export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
     <Card className="mx-auto max-w-3xl overflow-hidden">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-muted">Question {progressLabel}</p>
+          {sessionLabel ? <p className="text-sm font-semibold text-primary">{sessionLabel}</p> : null}
+          <p className="mt-1 text-sm font-medium text-muted">Question {progressLabel}</p>
           <h2 className="mt-2 text-2xl font-semibold leading-9 text-ink">{current.prompt}</h2>
         </div>
         <Badge tone="blue">{questionTypeLabel(current.question_type)}</Badge>
@@ -114,49 +147,53 @@ export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
         <form className="space-y-5" onSubmit={submitAnswer}>
           {current.question_type === "multiple_choice" || current.question_type === "true_false" ? (
             <div className={cn("grid gap-3", current.question_type === "true_false" && "sm:grid-cols-2")}>
-              {current.options.map((option) => (
-                <label
-                  className={cn(
-                    "flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-line bg-secondary px-4 py-3 text-base font-medium text-ink hover:-translate-y-0.5 hover:border-primary/40 hover:bg-primary/5",
-                    answer === option && "border-primary bg-primary/10 text-primary ring-2 ring-primary/10",
-                    result && !result.error && !result.isCorrect && answer === option && "animate-soft-shake border-red-200 bg-red-50 text-error"
-                  )}
+              {current.options.map((option, optionIndex) => (
+                <QuestionCard
+                  correct={Boolean(result && !result.error && answerMatches(option, result.correctAnswer))}
+                  disabled={locked}
                   key={option}
-                >
-                  <input
-                    checked={answer === option}
-                    className="h-4 w-4 accent-primary"
-                    disabled={locked}
-                    name="answer"
-                    onChange={() => setAnswer(option)}
-                    type="radio"
-                  />
-                  {option}
-                </label>
+                  label={current.question_type === "true_false" ? option : String.fromCharCode(65 + optionIndex)}
+                  onSelect={() => setAnswer(option)}
+                  selected={answer === option}
+                  text={option}
+                  wrong={Boolean(result && !result.error && !result.isCorrect && answer === option)}
+                />
               ))}
             </div>
           ) : null}
 
           {current.question_type === "fill_blank" ? (
-            <Input
-              disabled={locked}
-              onChange={(event) => setAnswer(event.target.value)}
-              placeholder="Type the missing word or phrase"
-              value={answer}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-ink" htmlFor="practice-answer">
+                Your answer
+              </label>
+              <Input
+                disabled={locked}
+                id="practice-answer"
+                onChange={(event) => setAnswer(event.target.value)}
+                placeholder="Type the missing word or phrase"
+                value={answer}
+              />
+            </div>
           ) : null}
 
           {current.question_type === "sentence_correction" ? (
-            <Textarea
-              disabled={locked}
-              onChange={(event) => setAnswer(event.target.value)}
-              placeholder="Rewrite the sentence correctly"
-              value={answer}
-            />
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-ink" htmlFor="practice-correction">
+                Corrected sentence
+              </label>
+              <Textarea
+                disabled={locked}
+                id="practice-correction"
+                onChange={(event) => setAnswer(event.target.value)}
+                placeholder="Rewrite the sentence correctly"
+                value={answer}
+              />
+            </div>
           ) : null}
 
           {result?.error ? (
-            <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-base text-error">
+            <div className="rounded-lg border border-red-100 bg-errorSoft p-4 text-base text-error">
               {result.error}
             </div>
           ) : null}
@@ -164,10 +201,10 @@ export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
           {result && !result.error ? (
             <div
               className={cn(
-                "rounded-2xl border p-5",
+                "rounded-lg border p-5",
                 result.isCorrect
-                  ? "border-green-100 bg-green-50 text-green-800"
-                  : "animate-soft-shake border-red-100 bg-red-50 text-red-800"
+                  ? "border-green-100 bg-successSoft text-green-800"
+                  : "animate-soft-shake border-red-100 bg-errorSoft text-red-800"
               )}
             >
               <div className="flex items-center gap-2 text-lg font-semibold">
@@ -179,9 +216,22 @@ export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
                 {result.isCorrect ? "Correct" : "Not quite"}
               </div>
               {!result.isCorrect ? (
-                <p className="mt-3 text-base">Correct answer: {result.correctAnswer}</p>
+                <div className="mt-3 rounded-lg border border-green-100 bg-white/60 p-4 text-base text-ink">
+                  Correct answer: <span className="font-semibold">{result.correctAnswer}</span>
+                </div>
               ) : null}
-              {result.explanation ? <p className="mt-3 text-base leading-7">{result.explanation}</p> : null}
+              {result.explanation ? (
+                <div className="mt-3 rounded-lg border border-line bg-white/60 p-4 text-base leading-7 text-ink">
+                  <p className="text-sm font-semibold text-primary">Explanation</p>
+                  <p className="mt-2">{result.explanation}</p>
+                </div>
+              ) : null}
+              {!result.isCorrect && result.wrongAnswerExplanation ? (
+                <div className="mt-3 rounded-lg border border-red-100 bg-white/60 p-4 text-base leading-7 text-ink">
+                  <p className="text-sm font-semibold text-error">Why that answer is wrong</p>
+                  <p className="mt-2">{result.wrongAnswerExplanation}</p>
+                </div>
+              ) : null}
               {result.completedLesson ? (
                 <p className="mt-3 text-sm font-semibold">Lesson marked as completed.</p>
               ) : null}
@@ -190,6 +240,7 @@ export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <ButtonLink href={backHref} variant="ghost">
+              <ArrowLeft className="h-4 w-4" />
               Back
             </ButtonLink>
             <div className="flex flex-col gap-2 sm:flex-row">
@@ -201,11 +252,11 @@ export function PracticeSession({ questions, backHref }: PracticeSessionProps) {
               ) : null}
               {result && !result.error ? (
                 <Button onClick={goNext} type="button">
-                  {index + 1 === questions.length ? "Finish" : "Next"}
+                  {index + 1 === questions.length ? "Finish" : "Next question"}
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               ) : (
-                <Button disabled={isPending} type="submit">
+                <Button disabled={isPending || !answer.trim()} type="submit">
                   {isPending ? "Checking" : "Check answer"}
                 </Button>
               )}

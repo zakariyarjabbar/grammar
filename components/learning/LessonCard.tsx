@@ -23,10 +23,10 @@ export function LessonCard({
   completed
 }: LessonCardProps) {
   return (
-    <Card className="transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-glow">
+    <Card className="transition hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-lift">
       <CardContent className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex gap-4">
-          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-primarySoft text-primary">
             {completed ? <CheckCircle2 className="h-6 w-6" /> : <BookOpen className="h-6 w-6" />}
           </span>
           <div>
@@ -39,7 +39,7 @@ export function LessonCard({
               </span>
             </div>
             <h2 className="mt-2 text-xl font-semibold text-ink">{title}</h2>
-            <p className="mt-2 max-w-2xl text-base leading-7 text-muted">{summary}</p>
+            <p className="mt-2 max-w-2xl text-base leading-7 text-body">{summary}</p>
           </div>
         </div>
         <div className="flex flex-col gap-2 sm:w-36 sm:shrink-0">

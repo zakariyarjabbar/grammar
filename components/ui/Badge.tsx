@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils/cn";
 type BadgeTone = "blue" | "green" | "amber" | "gray" | "red";
 
 const tones: Record<BadgeTone, string> = {
-  blue: "bg-primary/10 text-primary",
-  green: "bg-green-50 text-success",
-  amber: "bg-amber-50 text-warning",
-  gray: "bg-gray-100 text-muted",
-  red: "bg-red-50 text-red-700"
+  blue: "border-primary/10 bg-primarySoft text-primary",
+  green: "border-green-100 bg-successSoft text-success",
+  amber: "border-amber-100 bg-warningSoft text-amber-700",
+  gray: "border-line bg-secondary text-muted",
+  red: "border-red-100 bg-errorSoft text-red-700"
 };
 
 export function Badge({
@@ -18,7 +18,11 @@ export function Badge({
 }: HTMLAttributes<HTMLSpanElement> & { tone?: BadgeTone }) {
   return (
     <span
-      className={cn("inline-flex items-center rounded-xl px-2.5 py-1 text-xs font-medium", tones[tone], className)}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold leading-none",
+        tones[tone],
+        className
+      )}
       {...props}
     />
   );

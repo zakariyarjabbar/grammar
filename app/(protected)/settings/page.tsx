@@ -1,11 +1,12 @@
 import { LogOut, Save, UserCircle } from "lucide-react";
 import { AuthMessage } from "@/components/auth/AuthMessage";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
-import { Input, Label, Select } from "@/components/ui/Field";
+import { FormField, Input, Select } from "@/components/ui/Field";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { signOutAction, updateProfileAction } from "@/lib/actions/auth";
 import { requireUser } from "@/lib/auth/guards";
+import { CORE_LEVEL_SLUGS } from "@/lib/utils/curriculum";
 import type { GrammarLevel } from "@/types/database";
 
 type SettingsPageProps = {
@@ -21,6 +22,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
     .from("grammar_levels")
     .select("*")
     .eq("is_published", true)
+    .in("slug", [...CORE_LEVEL_SLUGS])
     .order("level_order")
     .returns<GrammarLevel[]>();
 
@@ -36,22 +38,24 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
         <Card>
           <CardHeader>
             <h2 className="text-xl font-semibold text-ink">Learner profile</h2>
-            <p className="mt-1 text-base text-muted">Keep your account information and learning level up to date.</p>
+            <p className="mt-1 text-base text-body">Keep your account information and learning level up to date.</p>
           </CardHeader>
           <CardContent>
             <form action={updateProfileAction} className="max-w-xl space-y-5">
               <AuthMessage message={params.message} />
-              <div className="space-y-2">
-                <Label htmlFor="full_name">Full name</Label>
+              <FormField id="full_name" label="Full name">
                 <Input
                   defaultValue={profile?.full_name ?? ""}
                   id="full_name"
                   name="full_name"
                   placeholder="Your name"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="current_level_id">Current level</Label>
+              </FormField>
+              <FormField
+                description="This level appears on your dashboard and helps frame your current path."
+                id="current_level_id"
+                label="Current level"
+              >
                 <Select
                   defaultValue={profile?.current_level_id ?? ""}
                   id="current_level_id"
@@ -64,7 +68,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
                     </option>
                   ))}
                 </Select>
-              </div>
+              </FormField>
               <SubmitButton loadingText="Saving">
                 <Save className="h-4 w-4" />
                 Save settings
@@ -78,11 +82,11 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
               <UserCircle className="mb-4 h-8 w-8 text-primary" />
               <h2 className="text-lg font-semibold text-ink">Account information</h2>
               <div className="mt-4 space-y-3 text-sm text-muted">
-                <div className="rounded-2xl border border-line bg-secondary p-4">
+                <div className="rounded-lg border border-line bg-secondary p-4">
                   <p className="font-semibold text-ink">Email</p>
                   <p className="mt-1 break-words">{user.email}</p>
                 </div>
-                <div className="rounded-2xl border border-line bg-secondary p-4">
+                <div className="rounded-lg border border-line bg-secondary p-4">
                   <p className="font-semibold text-ink">Role</p>
                   <p className="mt-1 capitalize">{profile?.role ?? "user"}</p>
                 </div>
@@ -92,7 +96,7 @@ export default async function SettingsPage({ searchParams }: SettingsPageProps) 
           <Card>
             <CardContent>
               <h2 className="text-lg font-semibold text-ink">Session</h2>
-              <p className="mt-2 text-base leading-7 text-muted">Sign out when you are finished studying.</p>
+              <p className="mt-2 text-base leading-7 text-body">Sign out when you are finished studying.</p>
               <form action={signOutAction} className="mt-5">
                 <SubmitButton loadingText="Signing out" variant="secondary">
                   <LogOut className="h-4 w-4" />

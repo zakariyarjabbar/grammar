@@ -14,6 +14,7 @@ const protectedPrefixes = [
   "/learn",
   "/lessons",
   "/practice",
+  "/tests",
   "/mistakes",
   "/settings",
   "/admin"

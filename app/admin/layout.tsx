@@ -7,7 +7,8 @@ const adminNavItems: NavItem[] = [
   { href: "/admin/levels", label: "Levels", icon: "levels" },
   { href: "/admin/topics", label: "Topics", icon: "topics" },
   { href: "/admin/lessons", label: "Lessons", icon: "lessons" },
-  { href: "/admin/questions", label: "Questions", icon: "questions" }
+  { href: "/admin/questions", label: "Questions", icon: "questions" },
+  { href: "/dashboard", label: "Back to app", icon: "dashboard" }
 ];
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {

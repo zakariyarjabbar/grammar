@@ -13,17 +13,25 @@ const config: Config = {
         secondary: "#F6F8FA",
         card: "#FFFFFF",
         ink: "#111111",
+        body: "#374151",
         muted: "#6B7280",
         line: "#E5E7EB",
+        lineStrong: "#D1D5DB",
         primary: "#104361",
-        primaryHover: "#0B3249",
+        primaryHover: "#0B324A",
+        primarySoft: "#EAF2F6",
+        primaryVerySoft: "#F3F8FA",
         success: "#16A34A",
+        successSoft: "#ECFDF3",
         warning: "#F59E0B",
-        error: "#DC2626"
+        warningSoft: "#FFFBEB",
+        error: "#DC2626",
+        errorSoft: "#FEF2F2"
       },
       boxShadow: {
-        soft: "0 18px 45px rgba(16, 67, 97, 0.08)",
-        glow: "0 24px 80px rgba(16, 67, 97, 0.14)"
+        soft: "0 12px 28px rgba(17, 24, 39, 0.06)",
+        glow: "0 20px 54px rgba(16, 67, 97, 0.12)",
+        lift: "0 16px 38px rgba(17, 24, 39, 0.08)"
       },
       keyframes: {
         "fade-up": {

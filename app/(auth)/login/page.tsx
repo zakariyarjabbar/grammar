@@ -3,7 +3,7 @@ import { LogIn } from "lucide-react";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { AuthMessage } from "@/components/auth/AuthMessage";
 import { PasswordInput } from "@/components/auth/PasswordInput";
-import { Input, Label } from "@/components/ui/Field";
+import { FormField, Input } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { signInAction } from "@/lib/actions/auth";
 
@@ -28,15 +28,16 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       }
       subtitle="Welcome back to your grammar workspace."
       title="Welcome back"
+      visualItems={["Practice today", "Review mistakes", "Track progress"]}
+      visualSubtitle="Return to your current lesson, review saved mistakes, and keep your grammar path moving."
+      visualTitle="Continue your grammar journey"
     >
       <form action={signInAction} className="space-y-4">
         <AuthMessage message={params.message} />
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+        <FormField id="email" label="Email">
           <Input autoComplete="email" id="email" name="email" placeholder="you@example.com" type="email" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+        </FormField>
+        <FormField id="password" label="Password">
           <PasswordInput
             autoComplete="current-password"
             id="password"
@@ -44,7 +45,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             placeholder="Your password"
             required
           />
-        </div>
+        </FormField>
         <SubmitButton className="w-full" loadingText="Logging in">
           <LogIn className="h-4 w-4" />
           Log in

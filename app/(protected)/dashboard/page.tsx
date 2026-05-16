@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, BookOpenCheck, CheckCircle2, ListChecks, PlayCircle, Target } from "lucide-react";
+import { AlertTriangle, ArrowRight, BookOpenCheck, CheckCircle2, ListChecks, PlayCircle, Target } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StatCard } from "@/components/ui/StatCard";
 import { requireUser } from "@/lib/auth/guards";
+import { CORE_LEVEL_SLUGS } from "@/lib/utils/curriculum";
 import type { GrammarLevel, GrammarTopic, Lesson, UserLessonProgress } from "@/types/database";
 
 type RecentMistake = {
@@ -36,6 +37,7 @@ export default async function DashboardPage() {
       .from("grammar_levels")
       .select("*")
       .eq("is_published", true)
+      .in("slug", [...CORE_LEVEL_SLUGS])
       .order("level_order")
       .returns<GrammarLevel[]>(),
     supabase
@@ -88,6 +90,9 @@ export default async function DashboardPage() {
   const completedLessons = completedLessonIds.size;
   const currentLevel =
     safeLevels.find((level) => level.id === profile?.current_level_id) ?? safeLevels[0] ?? null;
+  const nextLevel = currentLevel
+    ? safeLevels.find((level) => level.level_order > currentLevel.level_order) ?? null
+    : safeLevels[1] ?? null;
 
   const topicById = new Map(safeTopics.map((topic) => [topic.id, topic]));
   const levelById = new Map(safeLevels.map((level) => [level.id, level]));
@@ -106,6 +111,17 @@ export default async function DashboardPage() {
       return a.lesson.lesson_order - b.lesson.lesson_order;
     });
   const nextLesson = sortedLessons.find((item) => !completedLessonIds.has(item.lesson.id));
+  const levelProgress = safeLevels.map((level) => {
+    const levelTopicIds = new Set(safeTopics.filter((topic) => topic.level_id === level.id).map((topic) => topic.id));
+    const levelLessons = safeLessons.filter((lesson) => levelTopicIds.has(lesson.topic_id));
+    const levelCompleted = levelLessons.filter((lesson) => completedLessonIds.has(lesson.id)).length;
+    return {
+      level,
+      lessons: levelLessons.length,
+      completed: levelCompleted,
+      progress: levelLessons.length ? (levelCompleted / levelLessons.length) * 100 : 0
+    };
+  });
   const displayName = profile?.full_name || user.email?.split("@")[0] || "Learner";
   const accuracy = answeredCount ? Math.round(((correctCount ?? 0) / answeredCount) * 100) : 0;
   const overallProgress = safeLessons.length ? (completedLessons / safeLessons.length) * 100 : 0;
@@ -113,7 +129,7 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader
-        description="Track your grammar learning activity and jump back into the next lesson."
+        description="Continue your grammar journey and review what needs more practice."
         eyebrow="Dashboard"
         title={`Welcome, ${displayName}`}
       />
@@ -150,11 +166,11 @@ export default async function DashboardPage() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <Card className="overflow-hidden">
-          <CardHeader className="bg-secondary/80">
+          <CardHeader className="bg-primaryVerySoft">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-2xl font-semibold text-ink">Continue learning</h2>
-                <p className="mt-2 text-base text-muted">Your next available lesson is ready.</p>
+                <p className="mt-2 text-base text-body">Your next available lesson is ready.</p>
               </div>
               <Badge tone="blue">{Math.round(overallProgress)}% complete</Badge>
             </div>
@@ -166,7 +182,7 @@ export default async function DashboardPage() {
                   <div>
                     <Badge tone="blue">{nextLesson.level?.title}</Badge>
                     <h3 className="mt-3 text-2xl font-semibold text-ink">{nextLesson.lesson.title}</h3>
-                    <p className="mt-2 max-w-2xl text-base leading-7 text-muted">
+                    <p className="mt-2 max-w-2xl text-base leading-7 text-body">
                       {nextLesson.lesson.summary || nextLesson.topic?.title}
                     </p>
                     <p className="mt-3 text-sm font-medium text-muted">
@@ -193,7 +209,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <h2 className="text-lg font-semibold text-ink">Recent mistakes</h2>
-            <p className="mt-1 text-sm text-muted">Reviewing these will strengthen recall.</p>
+            <p className="mt-1 text-sm text-body">Reviewing these will strengthen recall.</p>
           </CardHeader>
           <CardContent>
             {recentMistakes?.length ? (
@@ -227,7 +243,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <h2 className="text-xl font-semibold text-ink">Recommended practice</h2>
-            <p className="mt-1 text-base text-muted">Keep your next session focused and manageable.</p>
+            <p className="mt-1 text-base text-body">Keep your next session focused and manageable.</p>
           </CardHeader>
           <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -235,7 +251,7 @@ export default async function DashboardPage() {
               <h3 className="mt-3 text-lg font-semibold text-ink">
                 {nextLesson ? `Practice ${nextLesson.lesson.title}` : "Choose a lesson to practice"}
               </h3>
-              <p className="mt-2 text-base leading-7 text-muted">
+              <p className="mt-2 text-base leading-7 text-body">
                 Practice reinforces the rule and saves wrong answers for review.
               </p>
             </div>
@@ -248,24 +264,64 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader>
             <h2 className="text-xl font-semibold text-ink">Recent activity</h2>
-            <p className="mt-1 text-base text-muted">A simple snapshot of your saved learning work.</p>
+            <p className="mt-1 text-base text-body">A simple snapshot of your saved learning work.</p>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-line bg-secondary p-4">
+            <div className="rounded-lg border border-line bg-secondary p-4">
               <p className="text-2xl font-semibold text-ink">{completedLessons}</p>
               <p className="mt-1 text-sm text-muted">Completed</p>
             </div>
-            <div className="rounded-2xl border border-line bg-secondary p-4">
+            <div className="rounded-lg border border-line bg-secondary p-4">
               <p className="text-2xl font-semibold text-ink">{answeredCount ?? 0}</p>
               <p className="mt-1 text-sm text-muted">Answers</p>
             </div>
-            <div className="rounded-2xl border border-line bg-secondary p-4">
+            <div className="rounded-lg border border-line bg-secondary p-4">
               <p className="text-2xl font-semibold text-ink">{mistakesCount ?? 0}</p>
               <p className="mt-1 text-sm text-muted">Reviews</p>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <h2 className="text-xl font-semibold text-ink">Learning path snapshot</h2>
+          <p className="mt-1 text-base text-body">See where you are now and what comes next.</p>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-[1fr_auto_1fr] md:items-center">
+            <div className="rounded-lg border border-primary/15 bg-primaryVerySoft p-4">
+              <Badge tone="blue">Current level</Badge>
+              <h3 className="mt-3 text-xl font-semibold text-ink">{currentLevel?.title ?? "Choose a level"}</h3>
+              <p className="mt-2 text-sm leading-6 text-body">
+                {currentLevel?.description ?? "Select your current level in settings to personalize the dashboard."}
+              </p>
+            </div>
+            <ArrowRight className="hidden h-5 w-5 text-primary md:block" />
+            <div className="rounded-lg border border-line bg-secondary p-4">
+              <Badge tone="gray">Next level</Badge>
+              <h3 className="mt-3 text-xl font-semibold text-ink">{nextLevel?.title ?? "Path complete"}</h3>
+              <p className="mt-2 text-sm leading-6 text-body">
+                {nextLevel?.description ?? "Keep reviewing and practicing advanced grammar."}
+              </p>
+            </div>
+          </div>
+          <ProgressBar className="mt-5" label="Full curriculum progress" value={overallProgress} />
+          <div className="mt-5 grid gap-3 md:grid-cols-3">
+            {levelProgress.map((item) => (
+              <div className="rounded-lg border border-line bg-white p-4" key={item.level.id}>
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-semibold text-ink">{item.level.title}</h3>
+                  <Badge tone={item.progress === 100 && item.lessons ? "green" : "gray"}>
+                    {item.completed}/{item.lessons}
+                  </Badge>
+                </div>
+                <ProgressBar className="mt-4" label={`${item.level.title} progress`} value={item.progress} />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </>
   );
 }

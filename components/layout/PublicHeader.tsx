@@ -1,31 +1,54 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { BookOpen, LogIn, Menu, UserPlus, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/Button";
+import { cn } from "@/lib/utils/cn";
 
 export function PublicHeader() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
   const links = [
     { href: "/", label: "Home" },
     { href: "/learn", label: "Lessons" },
     { href: "/practice", label: "Practice" },
-    { href: "/practice", label: "Tests" }
+    { href: "/tests", label: "Tests" }
   ];
 
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 4);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
+
   return (
-    <header className="sticky top-0 z-30 border-b border-line/80 bg-background/85 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
+    <header
+      className={cn(
+        "sticky top-0 z-30 border-b border-line/80 bg-background/92 backdrop-blur-xl",
+        scrolled && "shadow-sm shadow-slate-950/[0.04]"
+      )}
+    >
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
         <Link className="flex items-center gap-2 text-lg font-semibold text-ink" href="/">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white shadow-sm">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
             <BookOpen className="h-5 w-5" />
           </span>
           GrammarFlow
         </Link>
         <nav className="hidden items-center gap-7 text-sm font-medium text-muted md:flex">
           {links.map((link) => (
-            <Link className="hover:text-primary" href={link.href} key={link.label}>
+            <Link
+              className={cn(
+                "rounded-lg px-1 py-2 hover:text-primary",
+                (pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href))) && "text-primary"
+              )}
+              href={link.href}
+              key={link.label}
+            >
               {link.label}
             </Link>
           ))}
@@ -42,7 +65,7 @@ export function PublicHeader() {
         </nav>
         <button
           aria-label="Open menu"
-          className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink md:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-white text-ink md:hidden"
           onClick={() => setOpen(true)}
           type="button"
         >
@@ -54,7 +77,7 @@ export function PublicHeader() {
           <div className="mb-4 flex justify-end">
             <button
               aria-label="Close menu"
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-white text-ink"
+              className="flex h-10 w-10 items-center justify-center rounded-lg border border-line bg-white text-ink"
               onClick={() => setOpen(false)}
               type="button"
             >
@@ -64,7 +87,11 @@ export function PublicHeader() {
           <div className="grid gap-2">
             {links.map((link) => (
               <Link
-                className="rounded-xl px-4 py-3 text-base font-medium text-ink hover:bg-secondary"
+                className={cn(
+                  "rounded-lg px-4 py-3 text-base font-semibold text-ink hover:bg-secondary",
+                  (pathname === link.href || (link.href !== "/" && pathname.startsWith(link.href))) &&
+                    "bg-primarySoft text-primary"
+                )}
                 href={link.href}
                 key={link.label}
                 onClick={() => setOpen(false)}

@@ -10,6 +10,7 @@ export type SubmitAnswerResult = {
   isCorrect: boolean;
   correctAnswer: string;
   explanation: string | null;
+  wrongAnswerExplanation: string | null;
   completedLesson: boolean;
   error?: string;
 };
@@ -25,6 +26,7 @@ export async function submitAnswerAction(input: {
       isCorrect: false,
       correctAnswer: "",
       explanation: null,
+      wrongAnswerExplanation: null,
       completedLesson: false,
       error: "Enter an answer before checking."
     };
@@ -40,6 +42,7 @@ export async function submitAnswerAction(input: {
       isCorrect: false,
       correctAnswer: "",
       explanation: null,
+      wrongAnswerExplanation: null,
       completedLesson: false,
       error: "You need to log in again."
     };
@@ -56,6 +59,7 @@ export async function submitAnswerAction(input: {
       isCorrect: false,
       correctAnswer: "",
       explanation: null,
+      wrongAnswerExplanation: null,
       completedLesson: false,
       error: "Question not found."
     };
@@ -122,6 +126,7 @@ export async function submitAnswerAction(input: {
     isCorrect,
     correctAnswer: question.correct_answer,
     explanation: question.explanation,
+    wrongAnswerExplanation: question.wrong_answer_explanation,
     completedLesson
   };
 }

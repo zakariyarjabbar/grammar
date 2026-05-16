@@ -3,7 +3,7 @@ import { UserPlus } from "lucide-react";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { AuthMessage } from "@/components/auth/AuthMessage";
 import { PasswordInput } from "@/components/auth/PasswordInput";
-import { Input, Label } from "@/components/ui/Field";
+import { FormField, Input } from "@/components/ui/Field";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { signUpAction } from "@/lib/actions/auth";
 
@@ -28,19 +28,19 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
       }
       subtitle="Create your learner profile and start building stronger English grammar."
       title="Create account"
+      visualItems={["Start from your level", "Learn step by step", "Practice with feedback", "Build strong grammar"]}
+      visualSubtitle="Begin with your current level and follow a clean path through lessons, practice, and review."
+      visualTitle="Build strong grammar from day one"
     >
       <form action={signUpAction} className="space-y-4">
         <AuthMessage message={params.message} />
-        <div className="space-y-2">
-          <Label htmlFor="full_name">Full name</Label>
+        <FormField id="full_name" label="Full name">
           <Input autoComplete="name" id="full_name" name="full_name" placeholder="Jane Learner" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
+        </FormField>
+        <FormField id="email" label="Email">
           <Input autoComplete="email" id="email" name="email" placeholder="you@example.com" type="email" />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
+        </FormField>
+        <FormField id="password" label="Password" description="Use at least 6 characters.">
           <PasswordInput
             autoComplete="new-password"
             id="password"
@@ -49,9 +49,8 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             placeholder="At least 6 characters"
             required
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="confirm_password">Confirm password</Label>
+        </FormField>
+        <FormField id="confirm_password" label="Confirm password">
           <PasswordInput
             autoComplete="new-password"
             id="confirm_password"
@@ -60,7 +59,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             placeholder="Repeat your password"
             required
           />
-        </div>
+        </FormField>
         <SubmitButton className="w-full" loadingText="Creating account">
           <UserPlus className="h-4 w-4" />
           Create account

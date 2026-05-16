@@ -1,4 +1,6 @@
-import { Save, Trash2 } from "lucide-react";
+import { Save } from "lucide-react";
+import { AdminRecord, AdminTable } from "@/components/admin/AdminTable";
+import { DeleteSubmitButton } from "@/components/admin/DeleteSubmitButton";
 import { AuthMessage } from "@/components/auth/AuthMessage";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +11,7 @@ import { SubmitButton } from "@/components/ui/SubmitButton";
 import { deleteQuestionAction, upsertQuestionAction } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
 import { optionArray } from "@/lib/utils/content";
+import { CORE_LEVEL_SLUGS } from "@/lib/utils/curriculum";
 import type { CurriculumDifficulty, GrammarLevel, GrammarTopic, Lesson, Question, QuestionScope, QuestionType } from "@/types/database";
 
 type AdminQuestionsPageProps = {
@@ -50,7 +53,12 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
   const params = await searchParams;
   const { supabase } = await requireAdmin();
   const [{ data: levels }, { data: topics }, { data: lessons }, { data: questions }] = await Promise.all([
-    supabase.from("grammar_levels").select("*").order("level_order").returns<GrammarLevel[]>(),
+    supabase
+      .from("grammar_levels")
+      .select("*")
+      .in("slug", [...CORE_LEVEL_SLUGS])
+      .order("level_order")
+      .returns<GrammarLevel[]>(),
     supabase.from("grammar_topics").select("*").order("topic_order").returns<GrammarTopic[]>(),
     supabase.from("lessons").select("*").order("lesson_order").returns<Lesson[]>(),
     supabase.from("questions").select("*").order("question_order").returns<Question[]>()
@@ -58,6 +66,11 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
   const lessonById = new Map((lessons ?? []).map((lesson) => [lesson.id, lesson]));
   const topicById = new Map((topics ?? []).map((topic) => [topic.id, topic]));
   const levelById = new Map((levels ?? []).map((level) => [level.id, level]));
+  const coreLevelIds = new Set((levels ?? []).map((level) => level.id));
+  const visibleTopics = (topics ?? []).filter((topic) => coreLevelIds.has(topic.level_id));
+  const visibleTopicIds = new Set(visibleTopics.map((topic) => topic.id));
+  const visibleLessons = (lessons ?? []).filter((lesson) => visibleTopicIds.has(lesson.topic_id));
+  const visibleLessonIds = new Set(visibleLessons.map((lesson) => lesson.id));
   const topicLabel = (topic: GrammarTopic) => {
     const level = levelById.get(topic.level_id);
     return level ? `${level.title} / ${topic.title}` : topic.title;
@@ -70,6 +83,12 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
       : lesson
         ? topicById.get(lesson.topic_id)
         : null;
+    if (question.lesson_id && !visibleLessonIds.has(question.lesson_id)) {
+      return false;
+    }
+    if (topic && !visibleTopicIds.has(topic.id)) {
+      return false;
+    }
     const matchesSearch = searchTerm
       ? question.prompt.toLowerCase().includes(searchTerm) ||
         question.correct_answer.toLowerCase().includes(searchTerm) ||
@@ -96,17 +115,30 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
         <Card>
           <CardHeader>
             <h2 className="text-lg font-semibold text-ink">New question</h2>
+            <p className="mt-1 text-sm leading-6 text-body">Attach questions to lessons or topics and choose the correct practice or test scope.</p>
           </CardHeader>
           <CardContent>
             <form action={upsertQuestionAction} className="space-y-4">
               <AuthMessage message={params.message} />
               <div className="space-y-2">
+                <Label htmlFor="level_id">Level</Label>
+                <Select id="level_id" name="level_id">
+                  <option value="">Choose from the three-level path</option>
+                  {(levels ?? []).map((level) => (
+                    <option key={level.id} value={level.id}>
+                      {level.title}
+                    </option>
+                  ))}
+                </Select>
+                <p className="text-sm leading-6 text-muted">Use the lesson or topic field below to attach the question to this level.</p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="lesson_id">Lesson</Label>
                 <Select id="lesson_id" name="lesson_id">
                   <option value="">No lesson</option>
-                  {(lessons ?? []).map((lesson) => (
+                  {visibleLessons.map((lesson) => (
                     <option key={lesson.id} value={lesson.id}>
-                      {lesson.title}
+                      {topicById.get(lesson.topic_id) ? `${topicLabel(topicById.get(lesson.topic_id)!)} / ${lesson.title}` : lesson.title}
                     </option>
                   ))}
                 </Select>
@@ -115,7 +147,7 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
                 <Label htmlFor="topic_id">Topic</Label>
                 <Select id="topic_id" name="topic_id">
                   <option value="">No topic</option>
-                  {(topics ?? []).map((topic) => (
+                  {visibleTopics.map((topic) => (
                     <option key={topic.id} value={topic.id}>
                       {topicLabel(topic)}
                     </option>
@@ -190,13 +222,8 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <h2 className="text-lg font-semibold text-ink">Questions</h2>
-            <p className="mt-1 text-sm text-muted">Search and filter the curriculum question bank.</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <form className="grid gap-3 rounded-2xl border border-line bg-secondary p-4 md:grid-cols-5">
+        <AdminTable description="Search and filter the curriculum question bank." title="Questions">
+            <form className="grid gap-3 rounded-lg border border-line bg-secondary p-4 md:grid-cols-5">
               <Input defaultValue={params.search ?? ""} name="search" placeholder="Search questions" />
               <Select defaultValue={params.level ?? ""} name="level">
                 <option value="">All levels</option>
@@ -208,7 +235,7 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
               </Select>
               <Select defaultValue={params.topic ?? ""} name="topic">
                 <option value="">All topics</option>
-                {(topics ?? []).map((topic) => (
+                {visibleTopics.map((topic) => (
                   <option key={topic.id} value={topic.id}>
                     {topicLabel(topic)}
                   </option>
@@ -233,7 +260,7 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
               <Button type="submit" variant="secondary">Filter</Button>
             </form>
             {filteredQuestions.map((question) => (
-              <details className="rounded-2xl border border-line bg-secondary p-4" key={question.id}>
+              <AdminRecord key={question.id}>
                 <summary className="cursor-pointer list-none">
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -253,54 +280,111 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
                 </summary>
                 <form action={upsertQuestionAction} className="mt-4 grid gap-3 border-t border-line pt-4">
                   <input name="id" type="hidden" value={question.id} />
-                  <Select defaultValue={question.lesson_id ?? ""} name="lesson_id">
-                    <option value="">No lesson</option>
-                    {(lessons ?? []).map((lesson) => (
-                      <option key={lesson.id} value={lesson.id}>
-                        {lesson.title}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select defaultValue={question.topic_id ?? ""} name="topic_id">
-                    <option value="">No topic</option>
-                    {(topics ?? []).map((topic) => (
-                      <option key={topic.id} value={topic.id}>
-                        {topicLabel(topic)}
-                      </option>
-                    ))}
-                  </Select>
-                  <Select defaultValue={question.question_type} name="question_type">
-                    {questionTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </Select>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <Select defaultValue={question.difficulty} name="difficulty">
-                      {difficultyOptions.map((difficulty) => (
-                        <option key={difficulty.value} value={difficulty.value}>
-                          {difficulty.label}
-                        </option>
-                      ))}
-                    </Select>
-                    <Select defaultValue={question.question_scope} name="question_scope">
-                      {questionScopes.map((scope) => (
-                        <option key={scope.value} value={scope.value}>
-                          {scope.label}
-                        </option>
-                      ))}
-                    </Select>
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`level-${question.id}`}>Level</Label>
+                      <Select
+                        defaultValue={
+                          question.topic_id
+                            ? topicById.get(question.topic_id)?.level_id
+                            : question.lesson_id
+                              ? topicById.get(lessonById.get(question.lesson_id)?.topic_id ?? "")?.level_id
+                              : ""
+                        }
+                        id={`level-${question.id}`}
+                        name="level_id"
+                      >
+                        <option value="">Choose level</option>
+                        {(levels ?? []).map((level) => (
+                          <option key={level.id} value={level.id}>
+                            {level.title}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`lesson-${question.id}`}>Lesson</Label>
+                      <Select defaultValue={question.lesson_id ?? ""} id={`lesson-${question.id}`} name="lesson_id">
+                        <option value="">No lesson</option>
+                        {visibleLessons.map((lesson) => (
+                          <option key={lesson.id} value={lesson.id}>
+                            {topicById.get(lesson.topic_id) ? `${topicLabel(topicById.get(lesson.topic_id)!)} / ${lesson.title}` : lesson.title}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`topic-${question.id}`}>Topic</Label>
+                      <Select defaultValue={question.topic_id ?? ""} id={`topic-${question.id}`} name="topic_id">
+                        <option value="">No topic</option>
+                        {visibleTopics.map((topic) => (
+                          <option key={topic.id} value={topic.id}>
+                            {topicLabel(topic)}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
                   </div>
-                  <Textarea defaultValue={question.prompt} name="prompt" required />
-                  <Textarea defaultValue={optionArray(question.options).join("\n")} name="options" />
-                  <Input defaultValue={question.correct_answer} name="correct_answer" required />
-                  <Textarea defaultValue={question.explanation ?? ""} name="explanation" />
-                  <Textarea
-                    defaultValue={question.wrong_answer_explanation ?? ""}
-                    name="wrong_answer_explanation"
-                  />
-                  <Input defaultValue={question.question_order} min={1} name="question_order" type="number" />
+                  <div className="grid gap-3 md:grid-cols-3">
+                    <div className="space-y-2">
+                      <Label htmlFor={`type-${question.id}`}>Question type</Label>
+                      <Select defaultValue={question.question_type} id={`type-${question.id}`} name="question_type">
+                        {questionTypes.map((type) => (
+                          <option key={type.value} value={type.value}>
+                            {type.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`difficulty-${question.id}`}>Difficulty</Label>
+                      <Select defaultValue={question.difficulty} id={`difficulty-${question.id}`} name="difficulty">
+                        {difficultyOptions.map((difficulty) => (
+                          <option key={difficulty.value} value={difficulty.value}>
+                            {difficulty.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor={`scope-${question.id}`}>Question scope</Label>
+                      <Select defaultValue={question.question_scope} id={`scope-${question.id}`} name="question_scope">
+                        {questionScopes.map((scope) => (
+                          <option key={scope.value} value={scope.value}>
+                            {scope.label}
+                          </option>
+                        ))}
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`prompt-${question.id}`}>Prompt</Label>
+                    <Textarea defaultValue={question.prompt} id={`prompt-${question.id}`} name="prompt" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`options-${question.id}`}>Options</Label>
+                    <Textarea defaultValue={optionArray(question.options).join("\n")} id={`options-${question.id}`} name="options" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`answer-${question.id}`}>Correct answer</Label>
+                    <Input defaultValue={question.correct_answer} id={`answer-${question.id}`} name="correct_answer" required />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`explanation-${question.id}`}>Explanation</Label>
+                    <Textarea defaultValue={question.explanation ?? ""} id={`explanation-${question.id}`} name="explanation" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`wrong-explanation-${question.id}`}>Wrong answer explanation</Label>
+                    <Textarea
+                      defaultValue={question.wrong_answer_explanation ?? ""}
+                      id={`wrong-explanation-${question.id}`}
+                      name="wrong_answer_explanation"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`order-${question.id}`}>Order</Label>
+                    <Input defaultValue={question.question_order} id={`order-${question.id}`} min={1} name="question_order" type="number" />
+                  </div>
                   <label className="flex items-center gap-2 text-sm font-medium text-ink">
                     <input
                       className="h-4 w-4 accent-primary"
@@ -317,15 +401,11 @@ export default async function AdminQuestionsPage({ searchParams }: AdminQuestion
                 </form>
                 <form action={deleteQuestionAction} className="mt-3">
                   <input name="id" type="hidden" value={question.id} />
-                  <Button type="submit" variant="danger">
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </Button>
+                  <DeleteSubmitButton label="Delete question" />
                 </form>
-              </details>
+              </AdminRecord>
             ))}
-          </CardContent>
-        </Card>
+        </AdminTable>
       </div>
     </>
   );

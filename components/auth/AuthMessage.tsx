@@ -4,7 +4,7 @@ export function AuthMessage({ message }: { message?: string }) {
   }
 
   return (
-    <div className="rounded-2xl border border-primary/10 bg-primary/10 px-4 py-3 text-sm font-medium text-primary">
+    <div className="rounded-lg border border-primary/10 bg-primarySoft px-4 py-3 text-sm font-medium text-primary">
       {message}
     </div>
   );

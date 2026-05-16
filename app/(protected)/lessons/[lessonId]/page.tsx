@@ -1,11 +1,13 @@
 import { ArrowLeft, BookOpenCheck, CheckCircle2, Clock, PlayCircle, XCircle } from "lucide-react";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/Badge";
+import { Breadcrumbs } from "@/components/ui/Breadcrumbs";
 import { ButtonLink } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { requireUser } from "@/lib/auth/guards";
+import { isCoreLevelSlug } from "@/lib/utils/curriculum";
 import { jsonArray } from "@/lib/utils/content";
 import type { GrammarLevel, GrammarTopic, Lesson } from "@/types/database";
 
@@ -17,7 +19,7 @@ type LessonPageProps = {
 
 export default async function LessonPage({ params }: LessonPageProps) {
   const { lessonId } = await params;
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { data: lesson } = await supabase
     .from("lessons")
     .select("*")
@@ -38,14 +40,35 @@ export default async function LessonPage({ params }: LessonPageProps) {
     ? await supabase.from("grammar_levels").select("*").eq("id", topic.level_id).single<GrammarLevel>()
     : { data: null };
 
+  if (level && !isCoreLevelSlug(level.slug)) {
+    notFound();
+  }
+  const { data: lessonProgress } = await supabase
+    .from("user_lesson_progress")
+    .select("status")
+    .eq("lesson_id", lesson.id)
+    .eq("user_id", user.id)
+    .maybeSingle<{ status: string }>();
+
   const examples = jsonArray(lesson.examples);
   const mistakes = jsonArray(lesson.common_mistakes);
   const wrongCorrectExamples = jsonArray(lesson.wrong_correct_examples);
   const shortNotes = jsonArray(lesson.short_notes);
   const miniPractice = jsonArray(lesson.mini_practice);
+  const studyProgress = lessonProgress?.status === "completed" ? 100 : lessonProgress?.status === "in_progress" ? 45 : 15;
 
   return (
     <>
+      {level && topic ? (
+        <Breadcrumbs
+          items={[
+            { label: "Learning Path", href: "/learn" },
+            { label: level.title, href: `/learn/${level.slug}` },
+            { label: topic.title, href: `/learn/${level.slug}/${topic.slug}` },
+            { label: lesson.title }
+          ]}
+        />
+      ) : null}
       <PageHeader
         action={
           <ButtonLink href={`/practice/lesson/${lesson.id}`}>
@@ -55,52 +78,76 @@ export default async function LessonPage({ params }: LessonPageProps) {
         }
         description={lesson.summary ?? undefined}
         eyebrow={level && topic ? `${level.title} / ${topic.title}` : "Lesson"}
+        meta={
+          <>
+            {level ? <Badge tone="blue">{level.title}</Badge> : null}
+            {topic ? <Badge tone="gray">{topic.title}</Badge> : null}
+            <Badge tone="gray">{lesson.difficulty}</Badge>
+            <Badge tone="gray">{lesson.estimated_minutes} min</Badge>
+          </>
+        }
         title={lesson.title}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
         <div className="safe-prose space-y-6">
-          <ProgressBar value={20} />
+          <ProgressBar label="Lesson progress" value={studyProgress} />
+
+          <Card id="summary">
+            <CardHeader>
+              <h2 className="text-2xl font-semibold text-primary">Summary</h2>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg leading-9 text-body">
+                {lesson.summary || "Review the structure, examples, and mistakes before starting practice."}
+              </p>
+            </CardContent>
+          </Card>
+
           <Card id="explanation">
             <CardHeader>
               <h2 className="text-2xl font-semibold text-primary">Explanation</h2>
             </CardHeader>
             <CardContent>
-              <p className="whitespace-pre-line text-lg leading-9 text-muted">{lesson.explanation}</p>
+              <p className="whitespace-pre-line text-lg leading-9 text-body">{lesson.explanation}</p>
             </CardContent>
           </Card>
 
           {lesson.formula ? (
-            <Card id="structure">
+            <Card id="formula">
+            <CardHeader>
+              <h2 className="text-2xl font-semibold text-primary">Formula</h2>
+            </CardHeader>
+            <CardContent>
+                <div className="rounded-lg border border-primary/15 bg-primarySoft p-5 font-mono text-base leading-7 text-primary">
+                  {lesson.formula}
+                </div>
+            </CardContent>
+            </Card>
+          ) : null}
+
+          {lesson.usage_when ? (
+            <Card id="when-to-use">
               <CardHeader>
-                <h2 className="text-2xl font-semibold text-primary">Structure</h2>
+                <h2 className="text-2xl font-semibold text-primary">When to use it</h2>
               </CardHeader>
               <CardContent>
-                <div className="rounded-2xl border border-primary/15 bg-primary/10 p-5 font-mono text-base leading-7 text-primary">
-                  {lesson.formula}
+                <div className="rounded-lg border border-green-100 bg-successSoft p-5">
+                  <p className="whitespace-pre-line text-base leading-7 text-body">{lesson.usage_when}</p>
                 </div>
               </CardContent>
             </Card>
           ) : null}
 
-          {(lesson.usage_when || lesson.usage_when_not) ? (
-            <Card id="usage">
+          {lesson.usage_when_not ? (
+            <Card id="when-not-to-use">
               <CardHeader>
-                <h2 className="text-2xl font-semibold text-primary">When to use it</h2>
+                <h2 className="text-2xl font-semibold text-primary">When not to use it</h2>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                {lesson.usage_when ? (
-                  <div className="rounded-2xl border border-green-100 bg-green-50 p-5">
-                    <h3 className="font-semibold text-success">Use it when</h3>
-                    <p className="mt-3 whitespace-pre-line text-base leading-7 text-muted">{lesson.usage_when}</p>
-                  </div>
-                ) : null}
-                {lesson.usage_when_not ? (
-                  <div className="rounded-2xl border border-amber-100 bg-amber-50 p-5">
-                    <h3 className="font-semibold text-warning">Be careful when</h3>
-                    <p className="mt-3 whitespace-pre-line text-base leading-7 text-muted">{lesson.usage_when_not}</p>
-                  </div>
-                ) : null}
+              <CardContent>
+                <div className="rounded-lg border border-red-100 bg-errorSoft p-5">
+                  <p className="whitespace-pre-line text-base leading-7 text-body">{lesson.usage_when_not}</p>
+                </div>
               </CardContent>
             </Card>
           ) : null}
@@ -112,7 +159,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
             <CardContent>
               <ul className="grid gap-3">
                 {examples.map((example) => (
-                  <li className="flex gap-3 rounded-2xl border border-green-100 bg-green-50 p-4 text-base leading-7 text-ink" key={example}>
+                  <li className="flex gap-3 rounded-lg border border-green-100 bg-successSoft p-4 text-base leading-7 text-ink" key={example}>
                     <CheckCircle2 className="mt-1 h-5 w-5 shrink-0 text-success" />
                     <span>{example}</span>
                   </li>
@@ -128,7 +175,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
             <CardContent>
               <ul className="grid gap-3">
                 {mistakes.map((mistake) => (
-                  <li className="flex gap-3 rounded-2xl border border-red-100 bg-red-50 p-4 text-base leading-7 text-ink" key={mistake}>
+                  <li className="flex gap-3 rounded-lg border border-red-100 bg-errorSoft p-4 text-base leading-7 text-ink" key={mistake}>
                     <XCircle className="mt-1 h-5 w-5 shrink-0 text-error" />
                     <span>{mistake}</span>
                   </li>
@@ -146,12 +193,12 @@ export default async function LessonPage({ params }: LessonPageProps) {
                 {wrongCorrectExamples.map((item) => {
                   const [wrong, correct] = item.split("|").map((part) => part.trim());
                   return (
-                    <div className="grid gap-3 rounded-2xl border border-line bg-secondary p-4 md:grid-cols-2" key={item}>
-                      <div className="rounded-xl border border-red-100 bg-red-50 p-4">
+                    <div className="grid gap-3 rounded-lg border border-line bg-secondary p-4 md:grid-cols-2" key={item}>
+                      <div className="rounded-lg border border-red-100 bg-errorSoft p-4">
                         <p className="text-sm font-semibold text-error">Wrong</p>
                         <p className="mt-2 text-base text-ink">{wrong?.replace(/^Wrong:\s*/i, "")}</p>
                       </div>
-                      <div className="rounded-xl border border-green-100 bg-green-50 p-4">
+                      <div className="rounded-lg border border-green-100 bg-successSoft p-4">
                         <p className="text-sm font-semibold text-success">Correct</p>
                         <p className="mt-2 text-base text-ink">{correct?.replace(/^Correct:\s*/i, "")}</p>
                       </div>
@@ -162,47 +209,47 @@ export default async function LessonPage({ params }: LessonPageProps) {
             </Card>
           ) : null}
 
-          {miniPractice.length || shortNotes.length ? (
-            <Card id="mini-practice">
+          {shortNotes.length ? (
+            <Card id="short-notes">
               <CardHeader>
-                <h2 className="text-2xl font-semibold text-primary">Mini practice</h2>
+                <h2 className="text-2xl font-semibold text-primary">Short notes</h2>
               </CardHeader>
-              <CardContent className="grid gap-4 md:grid-cols-2">
-                {miniPractice.length ? (
-                  <div>
-                    <h3 className="font-semibold text-ink">Try these</h3>
-                    <ul className="mt-3 space-y-3">
-                      {miniPractice.map((prompt) => (
-                        <li className="rounded-2xl border border-line bg-secondary p-4 text-base leading-7 text-muted" key={prompt}>
-                          {prompt}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {shortNotes.length ? (
-                  <div>
-                    <h3 className="font-semibold text-ink">Short notes</h3>
-                    <ul className="mt-3 space-y-3">
-                      {shortNotes.map((note) => (
-                        <li className="rounded-2xl border border-line bg-white p-4 text-base leading-7 text-muted" key={note}>
-                          {note}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
+              <CardContent>
+                <ul className="grid gap-3">
+                  {shortNotes.map((note) => (
+                    <li className="rounded-lg border border-line bg-secondary p-4 text-base leading-7 text-body" key={note}>
+                      {note}
+                    </li>
+                  ))}
+                </ul>
               </CardContent>
             </Card>
           ) : null}
 
-          <Card id="summary">
+          {miniPractice.length ? (
+            <Card id="mini-practice">
+              <CardHeader>
+                <h2 className="text-2xl font-semibold text-primary">Mini practice</h2>
+              </CardHeader>
+              <CardContent>
+                <ul className="grid gap-3">
+                  {miniPractice.map((prompt) => (
+                    <li className="rounded-lg border border-primary/10 bg-primaryVerySoft p-4 text-base leading-7 text-body" key={prompt}>
+                      {prompt}
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <Card id="start-practice">
             <CardHeader>
-              <h2 className="text-2xl font-semibold text-primary">Summary</h2>
+              <h2 className="text-2xl font-semibold text-primary">Ready to practice</h2>
             </CardHeader>
             <CardContent>
-              <p className="text-lg leading-9 text-muted">
-                {lesson.summary || "Review the structure, examples, and mistakes before starting practice."}
+              <p className="text-lg leading-9 text-body">
+                Use the practice questions to check the rule, receive feedback, and save mistakes for review.
               </p>
               <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                 <ButtonLink href={`/practice/lesson/${lesson.id}`}>
@@ -252,14 +299,20 @@ export default async function LessonPage({ params }: LessonPageProps) {
             <CardContent>
               <h2 className="font-semibold text-ink">On this lesson</h2>
               <nav className="mt-4 grid gap-2 text-sm font-medium text-muted">
+                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#summary">
+                  Summary
+                </a>
                 <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#explanation">
                   Explanation
                 </a>
-                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#structure">
-                  Structure
+                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#formula">
+                  Formula
                 </a>
-                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#usage">
-                  Usage
+                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#when-to-use">
+                  When to use
+                </a>
+                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#when-not-to-use">
+                  When not to use
                 </a>
                 <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#examples">
                   Examples
@@ -267,8 +320,14 @@ export default async function LessonPage({ params }: LessonPageProps) {
                 <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#mistakes">
                   Common mistakes
                 </a>
-                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#summary">
-                  Summary
+                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#wrong-correct">
+                  Wrong vs correct
+                </a>
+                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#short-notes">
+                  Short notes
+                </a>
+                <a className="rounded-xl px-3 py-2 hover:bg-secondary hover:text-primary" href="#mini-practice">
+                  Mini practice
                 </a>
               </nav>
             </CardContent>

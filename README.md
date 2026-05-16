@@ -8,7 +8,7 @@ A version 1 English grammar learning platform built with Next.js App Router, Typ
 - User profiles with `user` and `admin` roles
 - Protected learner routes and protected admin routes
 - Grammar levels, topics, lessons, and practice questions
-- Eight-level curriculum path from Absolute Beginner to Expert Grammar / Writing Mastery
+- Three-level curriculum path: Beginner, Intermediate, and Advanced
 - Lesson metadata for difficulty, usage guidance, wrong/correct examples, notes, and mini practice
 - Question metadata for difficulty and scope: practice, lesson test, topic test, level test, mixed test, mistake focus, and final exam
 - Answer checking for multiple choice, fill in the blank, true or false, and sentence correction
@@ -25,7 +25,7 @@ A version 1 English grammar learning platform built with Next.js App Router, Typ
 - `types/` - TypeScript database types
 - `supabase/schema.sql` - database tables, triggers, functions, indexes, and RLS
 - `supabase/migrations/001_curriculum_metadata.sql` - update script for existing projects
-- `supabase/seed.sql` - academy curriculum path, detailed starter lessons, practice, and test questions
+- `supabase/seed.sql` - three-level academy curriculum path, detailed starter lessons, and practice questions
 
 ## Setup
 
@@ -108,16 +108,11 @@ npm run typecheck
 
 The seed creates the full academy path:
 
-- Absolute Beginner
 - Beginner
-- Elementary
-- Pre-Intermediate
 - Intermediate
-- Upper-Intermediate
 - Advanced
-- Expert Grammar / Writing Mastery
 
-It also adds the complete topic roadmap for each level. To keep the repo maintainable, the seed deeply populates the first 15 core topics with one detailed lesson each, 10 examples, common mistakes, wrong/correct examples, mini practice, 8 practice questions, and 5 test/review questions. The admin system is ready to expand every topic into many lessons and question sets over time.
+It also adds the complete topic roadmap for each level. To keep the repo maintainable, the seed deeply populates the first 15 core lessons with full lesson content, examples, common mistakes, wrong/correct examples, short notes, mini practice, and 8 practice questions each. The admin system is ready to expand every topic into many lessons and question sets over time.
 
 ## Version 1 Notes
 

@@ -8,9 +8,9 @@ type SectionHeaderProps = {
 export function SectionHeader({ eyebrow, title, description, centered }: SectionHeaderProps) {
   return (
     <div className={centered ? "mx-auto mb-10 max-w-3xl text-center" : "mb-7 max-w-3xl"}>
-      {eyebrow ? <p className="mb-2 text-sm font-semibold text-primary">{eyebrow}</p> : null}
+      {eyebrow ? <p className="mb-2 text-sm font-semibold uppercase tracking-[0.08em] text-primary">{eyebrow}</p> : null}
       <h2 className="text-3xl font-semibold tracking-normal text-ink sm:text-4xl">{title}</h2>
-      {description ? <p className="mt-3 text-base leading-7 text-muted">{description}</p> : null}
+      {description ? <p className="mt-3 text-base leading-7 text-body">{description}</p> : null}
     </div>
   );
 }

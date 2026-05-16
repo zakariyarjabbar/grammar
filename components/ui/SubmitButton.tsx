@@ -8,7 +8,7 @@ type SubmitButtonProps = {
   children: React.ReactNode;
   loadingText?: string;
   className?: string;
-  variant?: "primary" | "secondary" | "ghost" | "danger";
+  variant?: "primary" | "secondary" | "ghost" | "soft" | "danger";
 };
 
 export function SubmitButton({

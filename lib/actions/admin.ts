@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { linesToJsonArray, slugify } from "@/lib/utils/content";
+import { isCoreLevelSlug } from "@/lib/utils/curriculum";
 import type { CurriculumDifficulty, QuestionScope, QuestionType } from "@/types/database";
 
 function formString(formData: FormData, key: string) {
@@ -53,6 +54,15 @@ export async function upsertLevelAction(formData: FormData) {
   const id = formNullableString(formData, "id");
   const title = formString(formData, "title");
   const slug = formString(formData, "slug") || slugify(title);
+
+  if (!title) {
+    redirectWithMessage("/admin/levels", "Level title is required.");
+  }
+
+  if (!isCoreLevelSlug(slug)) {
+    redirectWithMessage("/admin/levels", "The academy path only supports beginner, intermediate, and advanced.");
+  }
+
   const payload = {
     title,
     slug,
@@ -93,8 +103,19 @@ export async function upsertTopicAction(formData: FormData) {
   const id = formNullableString(formData, "id");
   const title = formString(formData, "title");
   const slug = formString(formData, "slug") || slugify(title);
+  const levelId = formString(formData, "level_id");
+  const { data: level } = await supabase
+    .from("grammar_levels")
+    .select("slug")
+    .eq("id", levelId)
+    .maybeSingle<{ slug: string }>();
+
+  if (!level || !isCoreLevelSlug(level.slug)) {
+    redirectWithMessage("/admin/topics", "Topics must belong to Beginner, Intermediate, or Advanced.");
+  }
+
   const payload = {
-    level_id: formString(formData, "level_id"),
+    level_id: levelId,
     title,
     slug,
     description: formNullableString(formData, "description"),
@@ -134,13 +155,36 @@ export async function upsertLessonAction(formData: FormData) {
   const id = formNullableString(formData, "id");
   const title = formString(formData, "title");
   const slug = formString(formData, "slug") || slugify(title);
+  const topicId = formString(formData, "topic_id");
+  const explanation = formString(formData, "explanation");
+  const estimatedMinutes = formNumber(formData, "estimated_minutes", 8);
+  const lessonOrder = formNumber(formData, "lesson_order", 1);
+
+  if (!topicId || !title || !explanation) {
+    redirectWithMessage("/admin/lessons", "Topic, lesson title, and explanation are required.");
+  }
+
+  const { data: topic } = await supabase
+    .from("grammar_topics")
+    .select("grammar_levels(slug)")
+    .eq("id", topicId)
+    .maybeSingle<{ grammar_levels: { slug: string } | null }>();
+
+  if (!topic?.grammar_levels || !isCoreLevelSlug(topic.grammar_levels.slug)) {
+    redirectWithMessage("/admin/lessons", "Lessons must belong to Beginner, Intermediate, or Advanced.");
+  }
+
+  if (estimatedMinutes < 1 || lessonOrder < 1) {
+    redirectWithMessage("/admin/lessons", "Estimated minutes and lesson order must be positive numbers.");
+  }
+
   const payload = {
-    topic_id: formString(formData, "topic_id"),
+    topic_id: topicId,
     title,
     slug,
     difficulty: (formString(formData, "difficulty") || "easy") as CurriculumDifficulty,
     summary: formNullableString(formData, "summary"),
-    explanation: formString(formData, "explanation"),
+    explanation,
     formula: formNullableString(formData, "formula"),
     usage_when: formNullableString(formData, "usage_when"),
     usage_when_not: formNullableString(formData, "usage_when_not"),
@@ -149,8 +193,8 @@ export async function upsertLessonAction(formData: FormData) {
     wrong_correct_examples: linesToJsonArray(formString(formData, "wrong_correct_examples")),
     short_notes: linesToJsonArray(formString(formData, "short_notes")),
     mini_practice: linesToJsonArray(formString(formData, "mini_practice")),
-    lesson_order: formNumber(formData, "lesson_order", 1),
-    estimated_minutes: formNumber(formData, "estimated_minutes", 8),
+    lesson_order: lessonOrder,
+    estimated_minutes: estimatedMinutes,
     is_published: formBoolean(formData, "is_published"),
     updated_at: new Date().toISOString()
   };
@@ -187,15 +231,53 @@ export async function upsertQuestionAction(formData: FormData) {
   const questionType = formString(formData, "question_type") as QuestionType;
   const rawOptions = linesToJsonArray(formString(formData, "options"));
   const options = questionType === "true_false" && rawOptions.length === 0 ? ["True", "False"] : rawOptions;
+  const lessonId = formNullableString(formData, "lesson_id");
+  let topicId = formNullableString(formData, "topic_id");
+  const prompt = formString(formData, "prompt");
+  const correctAnswer = formString(formData, "correct_answer");
+
+  if (lessonId && !topicId) {
+    const { data: lesson } = await supabase
+      .from("lessons")
+      .select("topic_id")
+      .eq("id", lessonId)
+      .maybeSingle<{ topic_id: string }>();
+    topicId = lesson?.topic_id ?? null;
+  }
+
+  if (!lessonId && !topicId) {
+    redirectWithMessage("/admin/questions", "Choose a lesson or topic for this question.");
+  }
+
+  if (topicId) {
+    const { data: topic } = await supabase
+      .from("grammar_topics")
+      .select("grammar_levels(slug)")
+      .eq("id", topicId)
+      .maybeSingle<{ grammar_levels: { slug: string } | null }>();
+
+    if (!topic?.grammar_levels || !isCoreLevelSlug(topic.grammar_levels.slug)) {
+      redirectWithMessage("/admin/questions", "Questions must belong to Beginner, Intermediate, or Advanced.");
+    }
+  }
+
+  if (!prompt || !correctAnswer) {
+    redirectWithMessage("/admin/questions", "Prompt and correct answer are required.");
+  }
+
+  if (questionType === "multiple_choice" && options.length < 2) {
+    redirectWithMessage("/admin/questions", "Multiple choice questions need at least two options.");
+  }
+
   const payload = {
-    lesson_id: formNullableString(formData, "lesson_id"),
-    topic_id: formNullableString(formData, "topic_id"),
+    lesson_id: lessonId,
+    topic_id: topicId,
     question_type: questionType,
     difficulty: (formString(formData, "difficulty") || "easy") as CurriculumDifficulty,
     question_scope: (formString(formData, "question_scope") || "practice") as QuestionScope,
-    prompt: formString(formData, "prompt"),
+    prompt,
     options,
-    correct_answer: formString(formData, "correct_answer"),
+    correct_answer: correctAnswer,
     explanation: formNullableString(formData, "explanation"),
     wrong_answer_explanation: formNullableString(formData, "wrong_answer_explanation"),
     question_order: formNumber(formData, "question_order", 1),
